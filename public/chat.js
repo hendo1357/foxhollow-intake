@@ -19,35 +19,47 @@ chatForm.addEventListener('submit', async (e) => {
   conversationHistory.push({ role: 'user', content: userMessage });
   chatInput.value = '';
 
-  const response = await fetch('/api/message', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ history: conversationHistory })
-  });
-
-  const data = await response.json();
-  let botMessage = data.reply;
-  conversationHistory = data.history;
-
-  // Extract and handle JSON if present
-  const jsonRegex = /\{[\s\S]*\}/;
-  const jsonMatch = botMessage.match(jsonRegex);
-
-  if (jsonMatch) {
-    const structuredData = JSON.parse(jsonMatch[0]);
-
-    // Send structured data to Supabase
-    await fetch('/api/save-intake', {
+  try {
+    const response = await fetch('/api/message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(structuredData)
+      body: JSON.stringify({ history: conversationHistory })
     });
 
-    // Remove JSON from the displayed message
-    botMessage = botMessage.replace(jsonRegex, '').trim();
-  }
+    const data = await response.json();
+    let botMessage = data.reply;
+    conversationHistory = data.history;
 
-  addMessageToUI(botMessage, 'bot');
+    // 🛡️ Handle backend errors gracefully
+    if (!botMessage) {
+      botMessage = "Sorry, I couldn't generate a response. Our team will review this shortly.";
+      addMessageToUI(botMessage, 'bot');
+      return;
+    }
+
+    // Extract and handle JSON if present
+    const jsonRegex = /\{[\s\S]*\}/;
+    const jsonMatch = botMessage.match(jsonRegex);
+
+    if (jsonMatch) {
+      const structuredData = JSON.parse(jsonMatch[0]);
+
+      // Send structured data to Supabase
+      await fetch('/api/save-intake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(structuredData)
+      });
+
+      // Remove JSON from the displayed message
+      botMessage = botMessage.replace(jsonRegex, '').trim();
+    }
+
+    addMessageToUI(botMessage, 'bot');
+  } catch (error) {
+    console.error("Frontend error:", error);
+    addMessageToUI("Something went wrong while connecting to the assistant. Please try again later.", 'bot');
+  }
 });
 
 function addMessageToUI(message, sender) {
