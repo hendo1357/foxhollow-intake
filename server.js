@@ -32,6 +32,8 @@ Avoid veterinary jargon. Be friendly, human-sounding, and conversational — lik
   `;
 
   try {
+    console.log("Sending to GPT:", history); // <-- ADDED LOG
+
     const completion = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -49,6 +51,13 @@ Avoid veterinary jargon. Be friendly, human-sounding, and conversational — lik
     });
 
     const data = await completion.json();
+    console.log("GPT raw response:", data); // <-- ADDED LOG
+
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error("Malformed GPT response:", data); // <-- ADDED CHECK
+      return res.status(500).json({ error: "Malformed GPT response" });
+    }
+
     const assistantMessage = data.choices[0].message.content;
     const fullHistory = [...history, { role: 'assistant', content: assistantMessage }];
 
