@@ -56,6 +56,14 @@ chatForm.addEventListener('submit', async (e) => {
     }
 
     addMessageToUI(botMessage, 'bot');
+
+    // 🔁 Trigger summarization and Supabase intake save
+    await fetch('/api/summarize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ history: conversationHistory })
+    });
+
   } catch (error) {
     console.error("Frontend error:", error);
     addMessageToUI("Something went wrong while connecting to the assistant. Please try again later.", 'bot');
