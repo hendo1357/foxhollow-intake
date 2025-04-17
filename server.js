@@ -33,7 +33,7 @@ Avoid veterinary jargon. Be friendly, human-sounding, and conversational — lik
   `;
 
   try {
-    console.log("Sending to GPT:", history); // <-- ADDED LOG
+    console.log("Sending to GPT:", history);
 
     const completion = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -52,10 +52,10 @@ Avoid veterinary jargon. Be friendly, human-sounding, and conversational — lik
     });
 
     const data = await completion.json();
-    console.log("GPT raw response:", data); // <-- ADDED LOG
+    console.log("GPT raw response:", data);
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error("Malformed GPT response:", data); // <-- ADDED CHECK
+      console.error("Malformed GPT response:", data);
       return res.status(500).json({ error: "Malformed GPT response" });
     }
 
@@ -146,6 +146,46 @@ ${history.map(h => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).
   } catch (err) {
     console.error("Error summarizing chat:", err);
     res.status(500).json({ error: "Failed to generate summary." });
+  }
+});
+
+// --- Save chat logs to Supabase ---
+app.post('/api/save-chat-log', async (req, res) => {
+  const { intake_id, logs } = req.body;
+
+  if (!intake_id || !logs || !Array.isArray(logs)) {
+    return res.status(400).json({ error: "Missing or invalid chat log data" });
+  }
+
+  try {
+    const payload = logs.map(entry => ({
+      intake_id: intake_id,
+      role: entry.role,
+      message: entry.message,
+      timestamp: new Date().toISOString()
+    }));
+
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/chat_logs`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorDetails = await response.text();
+      console.error("Failed to save chat logs:", errorDetails);
+      return res.status(500).json({ error: "Failed to save chat logs" });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Error saving chat logs:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
