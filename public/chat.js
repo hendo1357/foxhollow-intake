@@ -64,6 +64,9 @@ chatForm.addEventListener('submit', async (e) => {
       body: JSON.stringify({ history: conversationHistory })
     });
 
+    // 📤 Save full chat log to Supabase (temp ID for now)
+    await logChatHistory("demo-intake-id", conversationHistory);
+
   } catch (error) {
     console.error("Frontend error:", error);
     addMessageToUI("Something went wrong while connecting to the assistant. Please try again later.", 'bot');
@@ -82,4 +85,22 @@ function addMessageToUI(message, sender) {
 function sanitizeAndFormat(text) {
   const safeText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return safeText.replace(/\n/g, "<br>");
+}
+
+// 🧠 New function: Send full chat log to Supabase
+async function logChatHistory(intakeId, history) {
+  try {
+    const logs = history.map(entry => ({
+      role: entry.role,
+      message: entry.content
+    }));
+
+    await fetch('/api/save-chat-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ intake_id: intakeId, logs })
+    });
+  } catch (error) {
+    console.error("Failed to save chat log:", error);
+  }
 }
