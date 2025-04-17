@@ -3,6 +3,7 @@ const chatInput = document.getElementById('chat-input');
 const messages = document.getElementById('messages');
 
 let conversationHistory = [];
+let intakeId = null; // Track intake ID across messages
 
 window.addEventListener('DOMContentLoaded', () => {
   const welcome = "Hi there! I'm here to help with your pet’s visit. Please tell me what’s going on today.";
@@ -30,7 +31,6 @@ chatForm.addEventListener('submit', async (e) => {
     let botMessage = data.reply;
     conversationHistory = data.history;
 
-    // 🛡️ Handle backend errors gracefully
     if (!botMessage) {
       botMessage = "Sorry, I couldn't generate a response. Our team will review this shortly.";
       addMessageToUI(botMessage, 'bot');
@@ -44,28 +44,37 @@ chatForm.addEventListener('submit', async (e) => {
     if (jsonMatch) {
       const structuredData = JSON.parse(jsonMatch[0]);
 
-      // Send structured data to Supabase
+      // Send structured data to Supabase (optional backup route)
       await fetch('/api/save-intake', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(structuredData)
       });
 
-      // Remove JSON from the displayed message
       botMessage = botMessage.replace(jsonRegex, '').trim();
     }
 
     addMessageToUI(botMessage, 'bot');
 
-    // 🔁 Trigger summarization and Supabase intake save
-    await fetch('/api/summarize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ history: conversationHistory })
-    });
+    // 🔁 Trigger summarization and get intake_id ONLY once
+    if (!intakeId) {
+      const summarizeRes = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ history: conversationHistory })
+      });
 
-    // 📤 Save full chat log to Supabase (temp ID for now)
-    await logChatHistory("demo-intake-id", conversationHistory);
+      const summarizeData = await summarizeRes.json();
+      intakeId = summarizeData.intake_id;
+
+      if (!intakeId) {
+        console.warn("No intake ID returned from summarize endpoint.");
+        return;
+      }
+    }
+
+    // 📤 Save full chat log to Supabase with real intakeId
+    await logChatHistory(intakeId, conversationHistory);
 
   } catch (error) {
     console.error("Frontend error:", error);
@@ -81,13 +90,11 @@ function addMessageToUI(message, sender) {
   messages.scrollTop = messages.scrollHeight;
 }
 
-// Optional: handle basic markdown or line breaks
 function sanitizeAndFormat(text) {
   const safeText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return safeText.replace(/\n/g, "<br>");
 }
 
-// 🧠 New function: Send full chat log to Supabase
 async function logChatHistory(intakeId, history) {
   try {
     const logs = history.map(entry => ({
