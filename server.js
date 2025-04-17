@@ -121,13 +121,14 @@ ${history.map(h => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).
       return res.status(400).json({ error: "Malformed JSON from summarizer." });
     }
 
-    // Save to Supabase
-    await fetch(`${SUPABASE_URL}/rest/v1/intakes`, {
+    // Save to Supabase and return created intake ID
+    const supabaseRes = await fetch(`${SUPABASE_URL}/rest/v1/intakes`, {
       method: "POST",
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        Prefer: "return=representation"
       },
       body: JSON.stringify({
         created_at: new Date().toISOString(),
@@ -142,7 +143,15 @@ ${history.map(h => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).
       })
     });
 
-    res.json({ success: true });
+    const created = await supabaseRes.json();
+    const intakeId = created[0]?.id;
+
+    if (!intakeId) {
+      console.warn("Intake record created but no ID returned.");
+      return res.status(500).json({ error: "Intake saved but no ID returned." });
+    }
+
+    res.json({ success: true, intake_id: intakeId });
   } catch (err) {
     console.error("Error summarizing chat:", err);
     res.status(500).json({ error: "Failed to generate summary." });
