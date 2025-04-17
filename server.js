@@ -153,7 +153,12 @@ ${history.map(h => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).
 app.post('/api/save-chat-log', async (req, res) => {
   const { intake_id, logs } = req.body;
 
+  console.log("Incoming request to /api/save-chat-log:");
+  console.log("intake_id:", intake_id);
+  console.log("logs:", logs);
+
   if (!intake_id || !logs || !Array.isArray(logs)) {
+    console.warn("Invalid data:", req.body);
     return res.status(400).json({ error: "Missing or invalid chat log data" });
   }
 
@@ -176,9 +181,11 @@ app.post('/api/save-chat-log', async (req, res) => {
       body: JSON.stringify(payload)
     });
 
+    const result = await response.text();
+    console.log("Supabase response:", result);
+
     if (!response.ok) {
-      const errorDetails = await response.text();
-      console.error("Failed to save chat logs:", errorDetails);
+      console.error("Failed to save chat logs:", result);
       return res.status(500).json({ error: "Failed to save chat logs" });
     }
 
